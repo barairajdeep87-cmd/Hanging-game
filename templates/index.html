@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Terminal Velocity - Pythonic Hangman</title>
+    
+    <!-- Tailwind CSS with Forms and Container Queries -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    
+    <!-- Google Fonts: Space Grotesk, JetBrains Mono, Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS Link -->
+    <link href="/static/css/style.css" rel="stylesheet">
+    
+    <!-- Tailwind Configuration matching design system -->
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "tertiary-container": "#ebdbff",
+                        "on-primary-container": "#007255",
+                        "tertiary-fixed-dim": "#d6baff",
+                        "surface-variant": "#353437",
+                        "secondary-fixed-dim": "#ffb59a",
+                        "on-secondary-container": "#531900",
+                        "on-secondary-fixed": "#370e00",
+                        "surface-container-highest": "#353437",
+                        "tertiary-fixed": "#ecdcff",
+                        "on-background": "#e5e1e4",
+                        "secondary-fixed": "#ffdbce",
+                        "error": "#ffb4ab",
+                        "on-primary-fixed": "#002116",
+                        "inverse-surface": "#e5e1e4",
+                        "surface-tint": "#00e1ab",
+                        "on-error": "#690005",
+                        "primary-fixed-dim": "#00e1ab",
+                        "inverse-on-surface": "#303032",
+                        "on-primary-fixed-variant": "#00513c",
+                        "primary-fixed": "#36ffc4",
+                        "surface-container-low": "#1b1b1d",
+                        "on-primary": "#003828",
+                        "outline-variant": "#3a4a43",
+                        "on-tertiary-fixed-variant": "#5f00c0",
+                        "inverse-primary": "#006c50",
+                        "on-secondary-fixed-variant": "#802a00",
+                        "surface-dim": "#131315",
+                        "surface-container-high": "#2a2a2c",
+                        "surface": "#131315",
+                        "on-tertiary-fixed": "#280057",
+                        "on-surface-variant": "#b9cbc1",
+                        "secondary-container": "#ff5e07",
+                        "on-error-container": "#ffdad6",
+                        "on-surface": "#e5e1e4",
+                        "on-secondary": "#5a1b00",
+                        "outline": "#83958c",
+                        "surface-container": "#201f21",
+                        "on-tertiary-container": "#7e39df",
+                        "primary": "#fbfffa",
+                        "error-container": "#93000a",
+                        "background": "#131315",
+                        "on-tertiary": "#420089",
+                        "surface-bright": "#39393b",
+                        "surface-container-lowest": "#0e0e10",
+                        "primary-container": "#00ffc2",
+                        "secondary": "#ffb59a",
+                        "tertiary": "#fffeff"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    spacing: {
+                        "slot-gap": "8px",
+                        "container-padding": "20px",
+                        "gutter": "12px",
+                        "unit": "4px"
+                    },
+                    fontFamily: {
+                        "body-md": ["Inter"],
+                        "headline-lg-mobile": ["Space Grotesk"],
+                        "headline-lg": ["Space Grotesk"],
+                        "display-game": ["Space Grotesk"],
+                        "code-input": ["JetBrains Mono"],
+                        "label-caps": ["JetBrains Mono"]
+                    },
+                    fontSize: {
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                        "display-game": ["48px", {"lineHeight": "56px", "letterSpacing": "0.1em", "fontWeight": "700"}],
+                        "code-input": ["20px", {"lineHeight": "28px", "fontWeight": "500"}],
+                        "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col overflow-x-hidden select-none">
+    
+    <!-- scanlines CRT decoration -->
+    <div class="fixed inset-0 terminal-scanline z-[60] pointer-events-none"></div>
+
+    <!-- Header (Shared) -->
+    <header class="bg-background dark:bg-background border-b border-outline-variant w-full fixed top-0 left-0 z-50">
+        <div class="flex justify-between items-center px-container-padding h-16 w-full max-w-lg mx-auto">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary-fixed" data-icon="terminal">terminal</span>
+                <span class="font-label-caps text-label-caps text-primary-fixed tracking-widest uppercase">terminal_hangman</span>
+            </div>
+            <button id="settings-btn" class="hover:bg-surface-variant/20 p-2 rounded-full transition-transform active:scale-95 text-primary-fixed">
+                <span class="material-symbols-outlined" data-icon="settings">settings</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Canvas Wrapper -->
+    <main class="flex-grow pt-16 pb-24 max-w-lg mx-auto w-full flex flex-col justify-center px-container-padding overflow-y-auto">
+        
+        <!-- View 0: Login Gateway -->
+        <section id="view-login" class="w-full flex flex-col items-center justify-center space-y-6 py-6">
+            <div class="text-center space-y-2 mb-2">
+                <div class="relative w-20 h-20 bg-surface-container-low border border-primary-fixed/30 rounded-xl flex items-center justify-center mx-auto overflow-hidden shadow-lg animate-pulse">
+                    <span class="material-symbols-outlined text-primary-fixed text-[44px]">terminal</span>
+                </div>
+                <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-primary-fixed uppercase tracking-wider mt-4">establish_link()</h2>
+                <p class="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-widest">[SYSTEM]: SECURE INTERFACE GATEWAY</p>
+            </div>
+
+            <div class="w-full bg-surface-container border border-outline-variant p-6 rounded-2xl shadow-xl space-y-4 max-w-sm">
+                <!-- Username field -->
+                <div class="space-y-1 text-left">
+                    <label class="block font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">OPERATOR_ID (USERNAME)</label>
+                    <div class="relative flex items-center">
+                        <span class="absolute left-3 font-code-input text-primary-fixed text-xs">&gt;</span>
+                        <input id="login-username" type="text" maxlength="12" placeholder="e.g. operator_x" class="w-full bg-surface-container-low border border-outline-variant rounded-xl pl-8 pr-4 py-3 font-code-input text-sm text-primary-fixed focus:border-primary focus:ring-0 placeholder:text-on-surface-variant/40">
+                    </div>
+                </div>
+
+                <!-- Password field -->
+                <div class="space-y-1 text-left">
+                    <label class="block font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">ACCESS_PASS (PASSWORD)</label>
+                    <div class="relative flex items-center">
+                        <span class="absolute left-3 font-code-input text-primary-fixed text-xs">*</span>
+                        <input id="login-password" type="password" placeholder="••••••••" class="w-full bg-surface-container-low border border-outline-variant rounded-xl pl-8 pr-4 py-3 font-code-input text-sm text-primary focus:border-primary focus:ring-0 placeholder:text-on-surface-variant/40">
+                    </div>
+                </div>
+                
+                <div id="login-error" class="text-error font-label-caps text-[9px] uppercase mt-2 hidden text-left leading-relaxed">
+                    [ERROR]: ACCESS_DENIED
+                </div>
+
+                <!-- Submit Button -->
+                <button id="login-submit-btn" class="w-full py-4 bg-primary-container text-on-primary-container font-code-input text-xs rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform uppercase font-semibold mt-6">
+                    <span class="material-symbols-outlined text-sm">login</span>
+                    INITIALIZE_ACCESS_PROTOCOL
+                </button>
+                
+                <!-- Guest Bypass -->
+                <button id="login-guest-btn" class="w-full py-3 border border-outline-variant hover:border-primary-fixed text-on-surface-variant hover:text-primary-fixed font-code-input text-[11px] rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform uppercase font-semibold">
+                    <span>BYPASS_SECURE_LOGIN (GUEST)</span>
+                </button>
+            </div>
+
+            <!-- Terminal Warnings -->
+            <div class="max-w-sm w-full p-4 border border-error/20 bg-error/5 rounded-xl flex gap-3 items-start">
+                <span class="material-symbols-outlined text-error text-base">warning</span>
+                <p class="font-label-caps text-[9px] text-error leading-relaxed uppercase text-left">
+                    [SECURITY_NOTICE]: THIS STATION IS PROTECTED. UNAUTHORIZED ACCESS ATTEMPTS WILL BE TRACED AND DECRYPTED LOCATIONS REPORTED.
+                </p>
+            </div>
+        </section>
+
+        <!-- View 1: Main Menu -->
+        <section id="view-menu" class="w-full hidden flex flex-col items-center text-center space-y-8 py-8">
+            <!-- Game Logo/Graphic -->
+            <div class="relative w-44 h-44 bg-surface-container-low border border-outline-variant rounded-xl flex items-center justify-center overflow-hidden shadow-2xl">
+                <div class="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
+                <div class="relative z-10 flex flex-col items-center">
+                    <span class="material-symbols-outlined text-primary-container text-[64px] mb-2" style="font-variation-settings: 'FILL' 1;">videogame_asset</span>
+                    <div class="font-code-input text-[10px] text-on-surface-variant tracking-[0.2em]">VERSION 3.1.4</div>
+                </div>
+                <!-- Decorative Glitch Lines -->
+                <div class="absolute top-0 left-0 w-full h-[2px] bg-primary-container/20 blur-sm"></div>
+                <div class="absolute bottom-0 right-0 w-[2px] h-full bg-primary-container/20 blur-sm"></div>
+            </div>
+            
+            <!-- Headlines -->
+            <div class="space-y-3">
+                <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-primary tracking-tight">
+                    Welcome to the Terminal<span class="code-cursor"></span>
+                </h2>
+                <p class="font-body-md text-on-surface-variant max-w-xs mx-auto leading-relaxed text-sm">
+                    Master vocabulary, one letter at a time. Decipher the syntax before the connection drops.
+                </p>
+            </div>
+            
+            <!-- Primary Actions -->
+            <div class="w-full flex flex-col space-y-4 pt-4">
+                <button id="start-game-btn" class="group relative bg-primary-container text-on-primary-container font-code-input text-code-input py-4 px-8 rounded-lg overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,255,194,0.4)] active:scale-95 flex items-center justify-center gap-3">
+                    <span class="relative z-10">&gt; start_game()</span>
+                    <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">play_arrow</span>
+                </button>
+                <button id="how-to-play-btn" class="bg-surface-container-high border border-primary-container/30 text-primary-container font-code-input text-body-md py-4 px-8 rounded-lg transition-all duration-300 hover:bg-primary-container/10 active:scale-95 flex items-center justify-center gap-3">
+                    <span>help(mechanics)</span>
+                    <span class="material-symbols-outlined">help_outline</span>
+                </button>
+            </div>
+            
+            <!-- Stats Bento Banner -->
+            <div class="grid grid-cols-2 gap-4 w-full pt-4">
+                <div class="bg-surface-container p-4 border border-outline-variant rounded-lg">
+                    <div class="text-on-surface-variant font-label-caps text-[10px] uppercase mb-1">Last Score</div>
+                    <div id="menu-last-score" class="font-code-input text-primary-container text-headline-lg-mobile">0</div>
+                </div>
+                <div class="bg-surface-container p-4 border border-outline-variant rounded-lg">
+                    <div class="text-on-surface-variant font-label-caps text-[10px] uppercase mb-1">Current Streak</div>
+                    <div id="menu-streak" class="font-code-input text-secondary text-headline-lg-mobile">0</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- View 2: Category Selection -->
+        <section id="view-categories" class="w-full hidden flex flex-col space-y-6 py-6">
+            <header class="mb-4 flex justify-between items-center">
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="w-2 h-4 bg-primary-fixed animate-pulse"></span>
+                        <h1 class="font-headline-lg-mobile text-headline-lg-mobile text-primary-fixed tracking-tight">select_category()</h1>
+                    </div>
+                    <p class="font-label-caps text-[10px] text-on-surface-variant opacity-70 uppercase">SYSTEM_INPUT_REQUIRED: CHOOSE_DATA_SET</p>
+                </div>
+                <button id="categories-back-btn" class="text-on-surface-variant hover:text-primary-fixed p-2 rounded-xl transition-all active:scale-95 flex items-center justify-center border border-outline-variant hover:border-primary-fixed bg-surface-container-low">
+                    <span class="material-symbols-outlined text-sm">arrow_back</span>
+                </button>
+            </header>
+            
+            <!-- Bento Grid of Categories -->
+            <div id="categories-container" class="grid grid-cols-1 gap-4">
+                <!-- Populated dynamically via JS -->
+            </div>
+            
+            <!-- Random Choice Button -->
+            <button id="random-category-btn" class="w-full bg-primary-fixed text-on-primary-fixed py-4 rounded-xl font-label-caps text-label-caps uppercase flex items-center justify-center gap-2 active:scale-95 transition-transform mt-4">
+                <span class="material-symbols-outlined" data-icon="shuffle">shuffle</span>
+                SELECT_RANDOM_CATEGORY
+            </button>
+        </section>
+
+        <!-- View 3: Active Gameplay -->
+        <section id="view-game" class="w-full hidden flex flex-col py-4">
+            <!-- Status Indicators -->
+            <div class="flex justify-between items-center mb-4 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider text-xs">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[14px]">terminal</span>
+                    <span>Attempts: <span id="game-attempts" class="text-secondary">6/6</span></span>
+                </div>
+                <button id="game-abort-btn" class="text-error hover:bg-error/15 border border-error/30 hover:border-error px-2.5 py-0.5 rounded-lg text-[9px] font-label-caps transition-all active:scale-95 bg-error/5">
+                    ABORT_SESSION
+                </button>
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[14px]">schedule</span>
+                    <span>Time: <span id="game-timer">00:00</span></span>
+                </div>
+            </div>
+            
+            <!-- Gallows SVG Display -->
+            <div class="flex justify-center items-center min-h-[200px] mb-6 bg-surface-container-low rounded-xl border border-outline-variant relative overflow-hidden">
+                <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(#3a4a43 1px, transparent 1px); background-size: 16px 16px;"></div>
+                
+                <svg id="gallows-svg" class="w-32 h-40 stroke-current text-on-surface-variant transition-all duration-500" viewBox="0 0 100 120">
+                    <!-- Base Structure (Static) -->
+                    <line stroke-width="3" x1="10" x2="90" y1="110" y2="110"></line>
+                    <line stroke-width="3" x1="30" x2="30" y1="110" y2="10"></line>
+                    <line stroke-width="3" x1="30" x2="70" y1="10" y2="10"></line>
+                    <line stroke-width="2" x1="70" x2="70" y1="10" y2="25"></line>
+                    
+                    <!-- Hangman Parts (Hidden initially, shown in JS) -->
+                    <!-- Head -->
+                    <circle id="gallow-head" cx="70" cy="35" r="10" fill="none" stroke-width="2" class="text-secondary-container glitch-flicker hidden"></circle>
+                    <!-- Torso -->
+                    <line id="gallow-torso" x1="70" y1="45" x2="70" y2="75" stroke-width="2" class="text-secondary-container glitch-flicker hidden"></line>
+                    <!-- Left Arm -->
+                    <line id="gallow-larm" x1="70" y1="55" x2="55" y2="65" stroke-width="2" class="text-secondary-container glitch-flicker hidden"></line>
+                    <!-- Right Arm -->
+                    <line id="gallow-rarm" x1="70" y1="55" x2="85" y2="65" stroke-width="2" class="text-secondary-container glitch-flicker hidden"></line>
+                    <!-- Left Leg -->
+                    <line id="gallow-lleg" x1="70" y1="75" x2="55" y2="90" stroke-width="2" class="text-secondary-container glitch-flicker hidden"></line>
+                    <!-- Right Leg -->
+                    <line id="gallow-rleg" x1="70" y1="75" x2="85" y2="90" stroke-width="2" class="text-secondary-container glitch-flicker hidden"></line>
+                    <!-- Defeat Eyes -->
+                    <path id="gallow-eyes" d="M67 27 L73 33 M73 27 L67 33" stroke-width="1.5" class="hidden"></path>
+                </svg>
+                
+                <div class="absolute bottom-2 left-3 font-label-caps text-[9px] text-outline opacity-50">[SYSTEM]: RENDER_GALLOWS_V3.0</div>
+            </div>
+            
+            <!-- Segmented Word Slots -->
+            <div id="word-slots-container" class="flex flex-wrap justify-center gap-2 mb-8">
+                <!-- Populated dynamically -->
+            </div>
+            
+            <!-- Virtual Keyboard -->
+            <div id="keyboard-container" class="space-y-2 mb-6">
+                <!-- Populated dynamically via JS -->
+            </div>
+
+            <!-- Terminal alert banner inside Active Game -->
+            <div id="game-alert" class="mx-auto bg-surface-container-high border-l-4 border-primary-container px-4 py-2.5 rounded-r-lg flex items-center gap-3 w-fit animate-pulse hidden">
+                <span class="font-label-caps text-[10px] text-primary-container">[SYSTEM]:</span>
+                <span id="game-alert-text" class="font-body-md text-[12px] text-on-surface tracking-tight">CONNECTION_SECURED</span>
+            </div>
+        </section>
+
+        <!-- View 4: Victory -->
+        <section id="view-victory" class="w-full hidden flex flex-col items-center justify-center py-6 text-center">
+            <div class="mb-6">
+                <h2 class="font-display-game text-[36px] text-primary-container success-text-glitch tracking-[0.2em] animate-pulse">SUCCESS</h2>
+                <div class="h-1 w-24 bg-primary-container mx-auto mt-2 opacity-50"></div>
+            </div>
+            
+            <!-- Smiley Figure inside Gallows Container -->
+            <div class="w-full aspect-square max-w-[240px] relative mb-6 flex items-center justify-center bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden victory-glow">
+                <div class="absolute top-0 left-0 w-full h-1 bg-primary-container/20"></div>
+                <div class="relative w-48 h-48 flex flex-col items-center justify-center">
+                    <div class="absolute top-2 left-1/2 -translate-x-1/2 w-px h-6 bg-on-surface-variant opacity-30"></div>
+                    <div class="text-primary-container scale-125 mb-2">
+                        <span class="material-symbols-outlined text-[72px]" style="font-variation-settings: 'FILL' 1;">sentiment_very_satisfied</span>
+                    </div>
+                    <div class="w-24 h-1 bg-primary-container/40 rounded-full"></div>
+                </div>
+            </div>
+
+            <p class="font-label-caps text-on-surface-variant text-[11px] mb-2 uppercase">TARGET_OBJECT_IDENTIFIED</p>
+            <div id="victory-word-reveal" class="flex gap-1.5 justify-center mb-6">
+                <!-- Revealed word characters -->
+            </div>
+
+            <!-- Terminal code snippet -->
+            <div class="w-full bg-surface-container-high p-4 rounded-lg border border-outline-variant mb-6 font-code-input text-xs text-left">
+                <div class="flex gap-2 mb-2">
+                    <div class="w-2 h-2 rounded-full bg-error"></div>
+                    <div class="w-2 h-2 rounded-full bg-secondary"></div>
+                    <div class="w-2 h-2 rounded-full bg-primary-container"></div>
+                </div>
+                <p class="text-on-surface-variant">
+                    <span class="text-tertiary-container">print</span>(<span class="text-primary-container">"You escaped the gallows!"</span>)
+                    <span class="terminal-cursor"></span>
+                </p>
+            </div>
+
+            <!-- Stats Bento -->
+            <div class="grid grid-cols-2 gap-3 w-full mb-6">
+                <div class="bg-surface-container p-3 border border-outline-variant rounded-xl flex flex-col items-center">
+                    <span class="font-label-caps text-[10px] text-on-surface-variant mb-1">ATTEMPTS</span>
+                    <span id="victory-attempts" class="font-display-game text-xl text-primary-container">0</span>
+                    <span class="text-[9px] text-on-surface-variant/60">USED / 6 TOTAL</span>
+                </div>
+                <div class="bg-surface-container p-3 border border-outline-variant rounded-xl flex flex-col items-center">
+                    <span class="font-label-caps text-[10px] text-on-surface-variant mb-1">TIME</span>
+                    <span id="victory-time" class="font-display-game text-xl text-primary-container">0:00</span>
+                    <span class="text-[9px] text-on-surface-variant/60">RECORD_TIME</span>
+                </div>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="w-full space-y-3">
+                <button id="victory-play-again-btn" class="w-full h-12 bg-primary-container text-on-primary-container font-label-caps text-xs rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform uppercase font-semibold">
+                    <span class="material-symbols-outlined">refresh</span>
+                    PLAY AGAIN
+                </button>
+                <button id="victory-menu-btn" class="w-full h-12 border border-primary-container/40 text-primary-container font-label-caps text-xs rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-primary-container/10 uppercase font-semibold">
+                    <span class="material-symbols-outlined">home</span>
+                    Back to Menu
+                </button>
+            </div>
+        </section>
+
+        <!-- View 5: Game Over -->
+        <section id="view-gameover" class="w-full hidden flex flex-col items-center justify-center py-6 text-center">
+            <div class="mb-6">
+                <h2 class="font-display-game text-[36px] text-secondary-container glitch-text uppercase tracking-widest">GAME OVER</h2>
+                <div class="mt-1.5 inline-block px-3 py-1 bg-secondary-container/10 border border-secondary-container/30 rounded">
+                    <p class="font-code-input text-[10px] text-secondary-container">ERROR_CODE: GAME_TERMINATED</p>
+                </div>
+            </div>
+
+            <!-- Hung figure SVG -->
+            <div class="w-full aspect-square max-w-[240px] relative mb-6 flex items-center justify-center border border-outline-variant/30 rounded-xl bg-surface-container-low overflow-hidden">
+                <svg class="w-4/5 h-4/5 stroke-secondary-container stroke-[2] fill-none drop-shadow-[0_0_8px_rgba(255,94,7,0.4)]" viewBox="0 0 100 100">
+                    <path class="opacity-40" d="M20 90 L80 90 M30 90 L30 10 L70 10 L70 20"></path>
+                    <circle class="flicker-animation" cx="70" cy="30" r="10"></circle>
+                    <path class="flicker-animation" d="M70 40 L70 70"></path>
+                    <path class="flicker-animation" d="M70 45 L55 60"></path>
+                    <path class="flicker-animation" d="M70 45 L85 60"></path>
+                    <path class="flicker-animation" d="M70 70 L55 85"></path>
+                    <path class="flicker-animation" d="M70 70 L85 85"></path>
+                    <path class="stroke-[1.5]" d="M67 27 L73 33 M73 27 L67 33"></path>
+                </svg>
+            </div>
+
+            <p class="font-label-caps text-on-surface-variant text-[11px] mb-2 uppercase">The word was:</p>
+            <div id="gameover-word-reveal" class="flex flex-wrap justify-center gap-1.5 mb-6">
+                <!-- Word revealed -->
+            </div>
+
+            <!-- Terminal code snippet -->
+            <div class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-4 mb-6 font-code-input text-xs text-left overflow-hidden">
+                <div class="flex gap-2 mb-2">
+                    <div class="w-2 h-2 rounded-full bg-error/40"></div>
+                    <div class="w-2 h-2 rounded-full bg-secondary-container/40"></div>
+                    <div class="w-2 h-2 rounded-full bg-primary-container/40"></div>
+                </div>
+                <code class="text-xs font-code-input block text-on-surface-variant">
+                    <span class="text-secondary-container">import</span> sys<br>
+                    <span class="text-primary-container">print</span>(<span class="text-secondary">"Game Over."</span>)<br>
+                    sys.exit(<span class="text-tertiary-fixed-dim">1</span>)
+                </code>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="w-full flex flex-col gap-3">
+                <button id="gameover-retry-btn" class="w-full py-4 bg-primary-container text-on-primary font-bold rounded-xl transition-all hover:brightness-110 active:scale-[0.98] flex items-center justify-center gap-2 font-label-caps text-xs">
+                    <span class="material-symbols-outlined">refresh</span>
+                    Try Again
+                </button>
+                <button id="gameover-menu-btn" class="w-full py-4 border border-primary-container/40 text-primary-container font-bold rounded-xl transition-all hover:bg-primary-container/10 active:scale-[0.98] flex items-center justify-center gap-2 font-label-caps text-xs">
+                    <span class="material-symbols-outlined">home</span>
+                    Back to Menu
+                </button>
+            </div>
+        </section>
+
+        <!-- View 6: Stats -->
+        <section id="view-stats" class="w-full hidden flex flex-col py-4 space-y-6">
+            <!-- Overview -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bento-card col-span-2 p-4 rounded-xl flex flex-col justify-between overflow-hidden relative min-h-[120px]">
+                    <span class="font-label-caps text-[10px] text-on-surface-variant uppercase opacity-60">System Overview</span>
+                    <div class="flex items-end justify-between z-10">
+                        <div>
+                            <div id="stats-win-rate" class="font-display-game text-[40px] text-primary-fixed neon-glow leading-none">0%</div>
+                            <div class="font-label-caps text-[10px] text-on-surface-variant mt-1">WIN_RATE</div>
+                        </div>
+                        <div class="text-right">
+                            <div id="stats-total-games" class="font-headline-lg text-2xl text-on-surface leading-none">0</div>
+                            <div class="font-label-caps text-[10px] text-on-surface-variant mt-1">TOTAL_GAMES</div>
+                        </div>
+                    </div>
+                    <div class="absolute -right-4 -bottom-4 opacity-5">
+                        <span class="material-symbols-outlined text-[100px]">analytics</span>
+                    </div>
+                </div>
+                
+                <div class="bento-card p-4 rounded-xl">
+                    <span class="font-label-caps text-[9px] text-on-surface-variant opacity-60">CURRENT_STREAK</span>
+                    <div class="mt-2 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary-fixed text-xl" style="font-variation-settings: 'FILL' 1;">bolt</span>
+                        <span id="stats-current-streak" class="font-headline-lg text-2xl text-primary-fixed">0</span>
+                    </div>
+                </div>
+                <div class="bento-card p-4 rounded-xl">
+                    <span class="font-label-caps text-[9px] text-on-surface-variant opacity-60">LONGEST_STREAK</span>
+                    <div class="mt-2 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-tertiary-fixed text-xl" style="font-variation-settings: 'FILL' 1;">military_tech</span>
+                        <span id="stats-longest-streak" class="font-headline-lg text-2xl text-on-surface">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed metrics -->
+            <section>
+                <h2 class="font-label-caps text-[11px] text-primary-fixed mb-3 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[14px]">monitoring</span>
+                    DETAILED_METRICS
+                </h2>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center p-3 border border-outline-variant rounded-xl bg-surface-container-lowest">
+                        <span class="font-label-caps text-[10px] text-on-surface-variant">AVERAGE_GUESSES</span>
+                        <span id="stats-avg-guesses" class="font-code-input text-sm text-primary-fixed">0.0</span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 border border-outline-variant rounded-xl bg-surface-container-lowest">
+                        <span class="font-label-caps text-[10px] text-on-surface-variant">MOST_FAILED_LETTER</span>
+                        <span id="stats-failed-letter" class="font-code-input text-sm text-secondary-container orange-glow font-bold">N/A</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Difficulty chart -->
+            <section>
+                <h2 class="font-label-caps text-[11px] text-primary-fixed mb-3 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[14px]">bar_chart</span>
+                    WINS_BY_DIFFICULTY
+                </h2>
+                <div class="bento-card p-4 rounded-xl space-y-4">
+                    <div>
+                        <div class="flex justify-between font-label-caps text-[10px] mb-1">
+                            <span>EASY</span>
+                            <span id="stats-wins-easy">0 WINS</span>
+                        </div>
+                        <div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+                            <div id="bar-easy" class="bar-transition bg-primary-fixed h-full rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between font-label-caps text-[10px] mb-1">
+                            <span>MEDIUM</span>
+                            <span id="stats-wins-medium">0 WINS</span>
+                        </div>
+                        <div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+                            <div id="bar-medium" class="bar-transition bg-primary-fixed-dim h-full rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between font-label-caps text-[10px] mb-1">
+                            <span>HARD / CRITICAL</span>
+                            <span id="stats-wins-hard">0 WINS</span>
+                        </div>
+                        <div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+                            <div id="bar-hard" class="bar-transition bg-surface-tint h-full rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </section>
+
+        <!-- View 7: Leaderboard -->
+        <section id="view-leaderboard" class="w-full hidden flex flex-col py-4">
+            <div class="mb-4">
+                <div class="flex items-center gap-3 mb-1">
+                    <span class="h-[1px] flex-grow bg-outline-variant"></span>
+                    <span class="text-primary-fixed font-label-caps text-[9px] opacity-50 tracking-[0.2em]">SYSTEM_QUERY</span>
+                    <span class="h-[1px] flex-grow bg-outline-variant"></span>
+                </div>
+                <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-center text-primary-fixed tracking-tight">global_leaderboard()</h2>
+            </div>
+
+            <!-- List entries -->
+            <div class="flex flex-col border border-outline-variant rounded-xl overflow-hidden bg-surface-container-low mb-6">
+                <!-- Header -->
+                <div class="flex items-center px-4 py-2.5 bg-surface-container-high border-b border-outline-variant font-label-caps text-[9px] text-on-surface-variant tracking-wider uppercase">
+                    <div class="w-10">Rank</div>
+                    <div class="flex-grow">Identifier</div>
+                    <div class="text-right">Score_XP</div>
+                </div>
+                <!-- Rows loaded in JS -->
+                <div id="leaderboard-rows" class="flex flex-col">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Sticky user overlay status card -->
+            <div class="bg-primary-container text-on-primary-container p-4 rounded-xl flex items-center shadow-xl border border-primary-fixed/40 mb-6">
+                <div id="user-rank-badge" class="w-10 font-display-game text-xl leading-none">--</div>
+                <div class="flex-grow">
+                    <div class="font-label-caps text-[9px] opacity-70 uppercase tracking-tighter">Your Current Rank</div>
+                    <div class="font-code-input font-bold text-sm">user_0xMY</div>
+                </div>
+                <div class="text-right">
+                    <div id="user-score-badge" class="font-display-game text-lg leading-none">0</div>
+                    <div class="font-label-caps text-[9px] opacity-70 uppercase">High XP</div>
+                </div>
+            </div>
+
+            <!-- System Info -->
+            <div class="p-3.5 rounded-lg bg-surface-container-highest/20 border border-primary-fixed/20 flex gap-3 items-start">
+                <span class="material-symbols-outlined text-primary-fixed text-sm">info</span>
+                <p class="font-label-caps text-[9px] text-on-surface-variant leading-relaxed uppercase">
+                    [SYSTEM]: Leaderboard syncs dynamically. Ranks are calculated based on total decrypted nodes and streak multipliers. Keep playing to elevate privilege level.
+                </p>
+            </div>
+        </section>
+
+        <!-- View 8: How to Play / Mechanics -->
+        <section id="view-help" class="w-full hidden flex flex-col py-4 space-y-6">
+            <header class="mb-2">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="w-2 h-4 bg-primary-fixed animate-pulse"></span>
+                    <h1 class="font-headline-lg-mobile text-headline-lg-mobile text-primary-fixed tracking-tight">help(mechanics)</h1>
+                </div>
+                <p class="font-label-caps text-[10px] text-on-surface-variant opacity-70 uppercase">DOCS: GAMEPLAY_PROTOCOLS</p>
+            </header>
+
+            <div class="space-y-4 font-body-md text-sm text-on-surface-variant leading-relaxed">
+                <div class="border border-outline-variant p-4 rounded-xl bg-surface-container-low">
+                    <h3 class="font-code-input text-primary-fixed text-xs uppercase mb-2">&gt; OBJECTIVE</h3>
+                    <p>Decrypt the hidden word one letter at a time. Each correct letter fills in the slots. Guess the word before your connection is cut off (6 incorrect attempts allowed).</p>
+                </div>
+
+                <div class="border border-outline-variant p-4 rounded-xl bg-surface-container-low">
+                    <h3 class="font-code-input text-primary-fixed text-xs uppercase mb-2">&gt; DIFFICULTY SCALES</h3>
+                    <ul class="list-disc list-inside space-y-1 text-xs">
+                        <li><span class="text-primary-fixed font-bold">ANIMALS</span>: Easy difficulty (0x01)</li>
+                        <li><span class="text-primary-fixed font-bold">COUNTRIES / CYBERPUNK_MOVIES</span>: Medium difficulty (0x02/0x04)</li>
+                        <li><span class="text-primary-fixed font-bold">TECH_STACK</span>: Hard difficulty (0x03)</li>
+                        <li><span class="text-secondary font-bold">PYTHON_STDLIB</span>: Critical difficulty (0x05)</li>
+                    </ul>
+                </div>
+
+                <div class="border border-outline-variant p-4 rounded-xl bg-surface-container-low">
+                    <h3 class="font-code-input text-primary-fixed text-xs uppercase mb-2">&gt; SCORING & STREAKS</h3>
+                    <p>Scores are calculated based on time spent and attempts remaining. Decrypting words consecutively builds a streak multiplier which enhances your rank on the global leaderboard.</p>
+                </div>
+            </div>
+
+            <button id="help-back-btn" class="w-full py-3.5 bg-primary-container text-on-primary-container font-label-caps text-xs rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform uppercase font-semibold">
+                <span class="material-symbols-outlined">arrow_back</span>
+                Return to Menu
+            </button>
+        </section>
+
+    </main>
+
+    <!-- Bottom Navigation Bar (Shared) -->
+    <nav id="bottom-nav-bar" class="fixed bottom-0 left-0 w-full flex justify-around items-center h-20 px-4 pb-safe bg-surface-container border-t border-outline-variant z-50 hidden">
+        <button id="nav-game" class="flex flex-col items-center justify-center text-primary-container font-bold group active:scale-90 transition-all duration-200">
+            <span class="material-symbols-outlined text-2xl mb-1" style="font-variation-settings: 'FILL' 1;">videogame_asset</span>
+            <span class="font-label-caps text-[9px] uppercase tracking-wider">Game</span>
+        </button>
+        <button id="nav-stats" class="flex flex-col items-center justify-center text-on-surface-variant opacity-70 group hover:opacity-100 px-4 py-2 rounded-xl active:scale-90 transition-all duration-200">
+            <span class="material-symbols-outlined text-2xl mb-1">query_stats</span>
+            <span class="font-label-caps text-[9px] uppercase tracking-wider">Stats</span>
+        </button>
+        <button id="nav-leaderboard" class="flex flex-col items-center justify-center text-on-surface-variant opacity-70 group hover:opacity-100 px-4 py-2 rounded-xl active:scale-90 transition-all duration-200">
+            <span class="material-symbols-outlined text-2xl mb-1">leaderboard</span>
+            <span class="font-label-caps text-[9px] uppercase tracking-wider">Leaderboard</span>
+        </button>
+    </nav>
+
+    <!-- System Notification Banner / Toast -->
+    <div id="toast-banner" class="fixed top-20 left-1/2 -translate-x-1/2 z-[100] transform transition-transform duration-500 pointer-events-none -translate-y-24">
+        <div class="bg-surface-container-highest border border-primary-container/50 text-primary-container font-code-input px-4 py-2 rounded-lg shadow-xl flex items-center gap-3">
+            <span class="material-symbols-outlined text-sm">info</span>
+            <span id="toast-banner-text" class="text-[11px]">[SYSTEM]: SESSION_ESTABLISHED_0x4F</span>
+        </div>
+    </div>
+
+    <!-- Settings Dialog / Modal overlay -->
+    <div id="settings-modal" class="fixed inset-0 z-[150] bg-background/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-surface-container border border-outline-variant rounded-2xl w-full max-w-sm p-6 shadow-2xl space-y-6">
+            <div class="flex justify-between items-center pb-2 border-b border-outline-variant">
+                <h3 class="font-headline-lg-mobile text-primary-fixed flex items-center gap-2 text-lg">
+                    <span class="material-symbols-outlined">settings</span>
+                    system_config()
+                </h3>
+                <button id="settings-close-btn" class="text-on-surface-variant hover:bg-surface-variant/20 p-1 rounded-full">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Sound fx switch -->
+                <div class="flex justify-between items-center">
+                    <div>
+                        <div class="font-code-input text-xs text-on-surface font-semibold">SYNTH_AUDIO_FX</div>
+                        <div class="text-[10px] text-on-surface-variant">Web Audio Synthesized sounds</div>
+                    </div>
+                    <button id="sound-toggle-btn" class="w-12 h-6 bg-primary-container rounded-full p-1 transition-colors flex items-center justify-start">
+                        <span class="w-4 h-4 bg-background rounded-full transition-transform translate-x-6"></span>
+                    </button>
+                </div>
+                
+                <!-- Reset stats button -->
+                <div class="flex justify-between items-center mb-2">
+                    <div>
+                        <div class="font-code-input text-xs text-on-surface font-semibold">CLEAR_CACHE_LOGS</div>
+                        <div class="text-[10px] text-on-surface-variant">Reset gameplay statistics</div>
+                    </div>
+                    <button id="clear-stats-btn" class="px-3 py-1.5 border border-error text-error text-xs font-label-caps uppercase rounded hover:bg-error/10 transition-colors">
+                        RESET_LOGS
+                    </button>
+                </div>
+
+                <!-- Disconnect session button -->
+                <div class="flex justify-between items-center border-t border-outline-variant pt-4">
+                    <div>
+                        <div class="font-code-input text-xs text-error font-semibold">DISCONNECT_SESSION</div>
+                        <div class="text-[10px] text-on-surface-variant">Terminate security link</div>
+                    </div>
+                    <button id="logout-btn" class="px-3 py-1.5 bg-error text-on-error text-xs font-label-caps uppercase rounded hover:brightness-110 transition-colors active:scale-95">
+                        LOGOUT
+                    </button>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-outline-variant text-center font-label-caps text-[9px] text-on-surface-variant opacity-60">
+                HOST_STATION: LOCALHOST:8080
+            </div>
+        </div>
+    </div>
+
+    <!-- Abort Session Dialog / Modal overlay -->
+    <div id="abort-modal" class="fixed inset-0 z-[150] bg-background/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-surface-container border border-error/50 rounded-2xl w-full max-w-sm p-6 shadow-2xl space-y-6">
+            <div class="flex justify-between items-center pb-2 border-b border-outline-variant">
+                <h3 class="font-headline-lg-mobile text-error flex items-center gap-2 text-base uppercase font-semibold">
+                    <span class="material-symbols-outlined">warning</span>
+                    abort_session()
+                </h3>
+            </div>
+
+            <div class="space-y-2 text-xs text-on-surface-variant font-code-input uppercase leading-relaxed">
+                <p class="text-error">[WARNING]: ABORTING THIS DECRYPTION SESSION WILL BREAK YOUR ACTIVE STREAK LOGS.</p>
+                <p>CONFIRM_SESSION_TERMINATION?</p>
+            </div>
+
+            <div class="flex gap-4">
+                <button id="abort-confirm-btn" class="flex-1 py-3 bg-error text-on-error font-bold rounded-xl active:scale-95 transition-transform font-label-caps text-[10px] uppercase">
+                    PROCEED_ABORT
+                </button>
+                <button id="abort-cancel-btn" class="flex-1 py-3 border border-outline-variant text-on-surface hover:bg-surface-variant/20 font-bold rounded-xl active:scale-95 transition-transform font-label-caps text-[10px] uppercase">
+                    CANCEL_ABORT
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game JS Link -->
+    <script src="/static/js/game.js"></script>
+</body>
+</html>
